@@ -20,6 +20,7 @@ var blobNameSHA256 = regexp.MustCompile("^/?(.*/)?(ac/|cas/)([a-f0-9]{64})$")
 type HTTPCache interface {
 	CacheHandler(w http.ResponseWriter, r *http.Request)
 	StatusPageHandler(w http.ResponseWriter, r *http.Request)
+	AdminPageHandler(w http.ResponseWriter, r *http.Request)
 }
 
 type httpCache struct {
@@ -180,4 +181,12 @@ func (h *httpCache) StatusPageHandler(w http.ResponseWriter, r *http.Request) {
 
 func path(kind cache.EntryKind, hash string) string {
 	return fmt.Sprintf("/%s/%s", kind, hash)
+}
+
+// Produce an adming page with the health of the cache server
+func (h *httpCache) AdminPageHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte("GOOD"))
 }
