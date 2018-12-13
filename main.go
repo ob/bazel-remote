@@ -133,6 +133,7 @@ func main() {
 		h := server.NewHTTPCache(proxyCache, accessLogger, errorLogger)
 
 		http.HandleFunc("/status", h.StatusPageHandler)
+		http.HandleFunc("/admin", h.AdminPageHandler)
 		http.HandleFunc("/", maybeAuth(h.CacheHandler, c.HtpasswdFile, c.Host))
 
 		if len(c.TLSCertFile) > 0 && len(c.TLSKeyFile) > 0 {
