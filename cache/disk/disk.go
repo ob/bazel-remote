@@ -38,16 +38,27 @@ type diskCache struct {
 // New returns a new instance of a filesystem-based cache rooted at `dir`,
 // with a maximum size of `maxSizeBytes` bytes.
 func New(dir string, maxSizeBytes int64) cache.Cache {
-	// Create the directory structure
-	ensureDirExists(filepath.Join(dir, "cas"))
-	ensureDirExists(filepath.Join(dir, "ac"))
+	// Create the directory structure.
+	hexLetters := []byte("0123456789abcdef")
+	for _, c1 := range hexLetters {
+		for _, c2 := range hexLetters {
+			subDir := string(c1) + string(c2)
+			err := os.MkdirAll(filepath.Join(dir, cache.CAS.String(), subDir), os.FileMode(0744))
+			if err != nil {
+				log.Fatal(err)
+			}
+			err = os.MkdirAll(filepath.Join(dir, cache.AC.String(), subDir), os.FileMode(0744))
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
 
 	// The eviction callback deletes the file from disk.
 	onEvict := func(key Key, value SizedItem) {
 		// Only remove committed items (as temporary files have a different filename)
 		if value.(*lruItem).committed {
-			blobPath := filepath.Join(dir, key.(string))
-			err := os.Remove(blobPath)
+			err := os.Remove(filepath.Join(dir, key.(string)))
 			if err != nil {
 				log.Println(err)
 			}
@@ -60,31 +71,64 @@ func New(dir string, maxSizeBytes int64) cache.Cache {
 		lru: NewSizedLRU(maxSizeBytes, onEvict),
 	}
 
-	cache.loadExistingFiles()
+	err := cache.migrateDirectories()
+	if err != nil {
+		log.Fatalf("Attempting to migrate the old directory structure to the new structure failed "+
+			"with error: %v", err)
+	}
+	err = cache.loadExistingFiles()
+	if err != nil {
+		log.Fatalf("Loading of existing cache entries failed due to error: %v", err)
+	}
 
 	return cache
 }
 
-func (c *diskCache) pathForKey(key string) string {
-	return filepath.Join(c.dir, key)
+func (c *diskCache) migrateDirectories() error {
+	err := migrateDirectory(filepath.Join(c.dir, cache.AC.String()))
+	if err != nil {
+		return err
+	}
+	err = migrateDirectory(filepath.Join(c.dir, cache.CAS.String()))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func migrateDirectory(dir string) error {
+	return filepath.Walk(dir, func(name string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			if name == dir {
+				return nil
+			}
+			return filepath.SkipDir
+		}
+		hash := filepath.Base(name)
+		newName := filepath.Join(filepath.Dir(name), hash[:2], hash)
+		return os.Rename(name, newName)
+	})
 }
 
 // loadExistingFiles lists all files in the cache directory, and adds them to the
 // LRU index so that they can be served. Files are sorted by access time first,
 // so that the eviction behavior is preserved across server restarts.
-func (c *diskCache) loadExistingFiles() {
+func (c *diskCache) loadExistingFiles() error {
 	// Walk the directory tree
 	type NameAndInfo struct {
 		info os.FileInfo
 		name string
 	}
 	var files []NameAndInfo
-	filepath.Walk(c.dir, func(name string, info os.FileInfo, err error) error {
+	err := filepath.Walk(c.dir, func(name string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
 			files = append(files, NameAndInfo{info, name})
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
 	// Sort in increasing order of atime
 	sort.Slice(files, func(i int, j int) bool {
@@ -92,16 +136,19 @@ func (c *diskCache) loadExistingFiles() {
 	})
 
 	for _, f := range files {
-		key := f.name[len(c.dir)+1:]
-		c.lru.Add(key, &lruItem{
+		relPath := f.name[len(c.dir)+1:]
+		c.lru.Add(relPath, &lruItem{
 			size:      f.info.Size(),
 			committed: true,
 		})
 	}
+	return nil
 }
 
-func (c *diskCache) Put(key string, size int64, expectedSha256 string, r io.Reader) (err error) {
+func (c *diskCache) Put(kind cache.EntryKind, hash string, size int64, r io.Reader) (err error) {
 	c.mux.Lock()
+
+	key := cacheKey(kind, hash)
 
 	// If there's an ongoing upload (i.e. cache key is present in uncommitted state),
 	// we drop the upload and discard the incoming stream. We do accept uploads
@@ -149,17 +196,22 @@ func (c *diskCache) Put(key string, size int64, expectedSha256 string, r io.Read
 	if err != nil {
 		return
 	}
-	defer os.Remove(f.Name())
+	defer func() {
+		if !shouldCommit {
+			// Only delete the temp file if moving it didn't succeed.
+			os.Remove(f.Name())
+		}
+	}()
 
-	if expectedSha256 != "" {
+	if kind == cache.CAS {
 		hasher := sha256.New()
 		if _, err = io.Copy(io.MultiWriter(f, hasher), r); err != nil {
 			return
 		}
 		actualHash := hex.EncodeToString(hasher.Sum(nil))
-		if actualHash != expectedSha256 {
+		if actualHash != hash {
 			err = fmt.Errorf(
-				"hashsums don't match. Expected %s, found %s", expectedSha256, actualHash)
+				"hashsums don't match. Expected %s, found %s", key, actualHash)
 			return
 		}
 	} else {
@@ -177,8 +229,8 @@ func (c *diskCache) Put(key string, size int64, expectedSha256 string, r io.Read
 	}
 
 	// Rename to the final path
-	blobPath := c.pathForKey(key)
-	err = os.Rename(f.Name(), blobPath)
+	filePath := cacheFilePath(kind, c.dir, hash)
+	err = os.Rename(f.Name(), filePath)
 	// Only commit if renaming succeeded
 	if err == nil {
 		// This flag is used by the defer() block above.
@@ -188,12 +240,12 @@ func (c *diskCache) Put(key string, size int64, expectedSha256 string, r io.Read
 	return
 }
 
-func (c *diskCache) Get(key string, actionCache bool) (data io.ReadCloser, sizeBytes int64, err error) {
-	if !c.Contains(key, actionCache) {
+func (c *diskCache) Get(kind cache.EntryKind, hash string) (data io.ReadCloser, sizeBytes int64, err error) {
+	if !c.Contains(kind, hash) {
 		return
 	}
 
-	blobPath := c.pathForKey(key)
+	blobPath := cacheFilePath(kind, c.dir, hash)
 
 	fileInfo, err := os.Stat(blobPath)
 	if err != nil {
@@ -209,11 +261,11 @@ func (c *diskCache) Get(key string, actionCache bool) (data io.ReadCloser, sizeB
 	return
 }
 
-func (c *diskCache) Contains(key string, actionCache bool) (ok bool) {
+func (c *diskCache) Contains(kind cache.EntryKind, hash string) (ok bool) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	val, found := c.lru.Get(key)
+	val, found := c.lru.Get(cacheKey(kind, hash))
 	// Uncommitted (i.e. uploading items) should be reported as not ok
 	return found && val.(*lruItem).committed
 }
@@ -243,4 +295,12 @@ func ensureDirExists(path string) {
 			log.Fatal(err)
 		}
 	}
+}
+
+func cacheKey(kind cache.EntryKind, hash string) string {
+	return filepath.Join(kind.String(), hash[:2], hash)
+}
+
+func cacheFilePath(kind cache.EntryKind, cacheDir string, hash string) string {
+	return filepath.Join(cacheDir, cacheKey(kind, hash))
 }
