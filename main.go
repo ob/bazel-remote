@@ -207,20 +207,34 @@ func main() {
 
 		var proxyCache cache.Cache
 		if c.GoogleCloudStorage != nil {
+			var accessMode cachehttp.AccessMode
+			accessMode = cachehttp.ReadWrite
+			if c.GoogleCloudStorage.DisableReads {
+				accessMode = cachehttp.Write
+			} else if c.GoogleCloudStorage.DisableWrites {
+				accessMode = cachehttp.Read
+			}
 			proxyCache, err = gcs.New(c.GoogleCloudStorage.Bucket,
 				c.GoogleCloudStorage.UseDefaultCredentials, c.GoogleCloudStorage.JSONCredentialsFile,
-				diskCache, accessLogger, errorLogger)
+				diskCache, accessMode, accessLogger, errorLogger)
 			if err != nil {
 				log.Fatal(err)
 			}
 		} else if c.HTTPBackend != nil {
+			var accessMode cachehttp.AccessMode
+			accessMode = cachehttp.ReadWrite
+			if c.HTTPBackend.DisableReads {
+				accessMode = cachehttp.Write
+			} else if c.HTTPBackend.DisableWrites {
+				accessMode = cachehttp.Read
+			}
 			httpClient := &http.Client{}
 			baseURL, err := url.Parse(c.HTTPBackend.BaseURL)
 			if err != nil {
 				log.Fatal(err)
 			}
 			proxyCache = cachehttp.New(baseURL, diskCache,
-				httpClient, accessLogger, errorLogger)
+				httpClient, accessMode, accessLogger, errorLogger)
 		} else {
 			proxyCache = diskCache
 		}
