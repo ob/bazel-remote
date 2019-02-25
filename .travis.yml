@@ -1,0 +1,21 @@
+language: go
+
+os:
+  - linux
+  - osx
+
+before_install:
+  - export $(./git-commit.sh | tr ' ' =)
+
+env:
+  - CGO_ENABLED=0 GO111MODULE=on
+
+go:
+- 1.11.x
+
+before_script:
+  - go get ${gobuild_args} ./...
+
+script: go test -v ./...
+
+gobuild_args: -a -ldflags "-extldflags '-static' -X github.com/buchgr/bazel-remote/server.GitCommit=${STABLE_GIT_COMMIT}" .
