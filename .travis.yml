@@ -11,7 +11,9 @@ go:
 - 1.11.x
 before_script:
 - go get ${gobuild_args} ./...
-script: go test -v ./...
+script:
+  - go build ${gobuild_args}
+  - go test -v ./...
 gobuild_args: -a -ldflags "-extldflags '-static' -X github.com/buchgr/bazel-remote/server.GitCommit=${STABLE_GIT_COMMIT}"
   .
 before_deploy:
@@ -29,10 +31,9 @@ deploy:
   provider: releases
   api_key:
     secure: m+IM8AHuJD7UPaCDFTb6byD9pdTvMFwr1xc0A1knZFCeCP1ViMRH0HwDoqii5GxZ4GaBtmjB5x5eRtKMmPDpmxp2xeeOF+ELN8IB2TUA+ez4X7y5cgsMYfX/u3Shu2pMKZPoI0ny15BBaY0xrfC/+J3ZDOyZBVA3bs9t6kH1B23EygBT5g5KYweYK9MtRSrSZTVHvwSjLdbR+9MGmgXishzXxMQbmMgPNYiHToS48f0Fh+CUrRC+ZHEn+8IZOGrDXbhDGFnlk48LbK8zvMaUNiM7UXF4fwkZM5rPd7tTWd51zKO2t7oDFSxGHaIdqC2Kf2kKtq+Scf27F3+Cx4g2oO2JNwFSrsKWND+MP6ryk4TRwRVhVHHLAgpWsHBVORzF/0/aVAHcSEE8pENVze1hT529w+iSJJa49Sj5FUhz0Mf6Thcql5GiXUGDLs7nNm9GCOlf0WuHqE3IhpDPucLq3XRPNOukc+c6kAB7KG6MDx/531nmUKZmyr2o7ajzWxxBCfaslmnb2Ce/MpAu41lZNVi4g2xvbGr1VC3C6Yi55EwMgT8MtbK17txcd2E8dOhDIkRcslaGpLtaaJw8FpOMsrOYiVxOYdPkNyVX39gXP61NcyiFAjdQqE/pMmajdazwHLnhpCQ+M+n1sgylujfICCJNuGeDhlojb/MU4S7lSsk=
-  file:
-    - bazel-remote-${TAG}-${S}-${M}
-    - bazel-remote-${TAG}-${S}-${M}.sha256
+  file: bazel-remote-*
+  file_glob: true
+  skip_cleanup: true
   on:
     repo: ob/bazel-remote
-    branch: ob
     tags: true
