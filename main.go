@@ -250,9 +250,6 @@ func main() {
 			defer signalHandlersMutex.Unlock()
 			signalHandlers = append(signalHandlers, func(sig os.Signal) {
 				errorLogger.Printf("Shutting down server due to signal: %v", sig)
-				if error := os.Remove(filepath.Join(c.Dir, bazelRemotePortFile)); error != nil {
-					errorLogger.Printf("Failed to remove %v", c.Dir)
-				}
 				if err := httpServer.Shutdown(context.Background()); err != nil {
 					errorLogger.Printf("Failed to shutdown http server: %v", err)
 				}
@@ -280,7 +277,7 @@ func main() {
 		defer ln.Close()
 		// now it's safe to write the port file since we're already listening
 		s := fmt.Sprintf("%s\n", ln.Addr().String())
-		err = ioutil.WriteFile(filepath.Join(c.Dir, bazelRemotePortFile), []byte(s), 0644)
+		err = ioutil.WriteFile(filepath.Join(c.Dir, bazelRemotePortFile), []byte(s), 0666)
 		if err != nil {
 			return err
 		}
