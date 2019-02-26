@@ -192,7 +192,7 @@ func TestCacheExistingFiles(t *testing.T) {
 			t.Fatal(err)
 		}
 		// Wait a bit to account for atime granularity
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 	}
 
 	const expectedSize = 3 * int64(len(CONTENTS))
