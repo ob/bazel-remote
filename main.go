@@ -261,7 +261,7 @@ func main() {
 
 		h := server.NewHTTPCache(proxyCache, accessLogger, errorLogger)
 		mux.HandleFunc("/status", h.StatusPageHandler)
-		http.HandleFunc("/admin", h.AdminPageHandler)
+		mux.HandleFunc("/admin", h.AdminPageHandler)
 
 		cacheHandler := h.CacheHandler
 		if c.HtpasswdFile != "" {
