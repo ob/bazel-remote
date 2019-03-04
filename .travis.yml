@@ -4,7 +4,8 @@ os:
 - linux
 - osx
 before_install:
-- openssl aes-256-cbc -K $encrypted_76a464c5f1b5_key -iv $encrypted_76a464c5f1b5_iv -in gc.enc -out ~\/.gitcookies -d
+- openssl aes-256-cbc -K $encrypted_76a464c5f1b5_key -iv $encrypted_76a464c5f1b5_iv
+  -in gc.enc -out ~\/.gitcookies -d
 - export $(./git-commit.sh | tr ' ' =)
 env:
 - CGO_ENABLED=0 GO111MODULE=on
@@ -13,21 +14,21 @@ go:
 before_script:
 - go get ${gobuild_args} ./...
 script:
-  - go build ${gobuild_args}
-  - go test -v ./...
+- go build ${gobuild_args}
+- go test -v ./...
 gobuild_args: -a -ldflags "-extldflags '-static' -X github.com/buchgr/bazel-remote/server.GitCommit=${STABLE_GIT_COMMIT}"
   .
 before_deploy:
-  - export TAG=$(git describe --tags)
-  - export S=$(uname -s | tr A-Z a-z)
-  - export M=$(uname -m)
-  - cp bazel-remote bazel-remote-${TAG}-${S}-${M}
-  - |
-    if [[ $(uname -s) == Darwin ]]; then
-      shasum -a 256 bazel-remote-${TAG}-${S}-${M} > bazel-remote-${TAG}-${S}-${M}.sha256
-    else
-      sha256sum bazel-remote-${TAG}-${S}-${M} > bazel-remote-${TAG}-${S}-${M}.sha256
-    fi
+- export TAG=$(git describe --tags)
+- export S=$(uname -s | tr A-Z a-z)
+- export M=$(uname -m)
+- cp bazel-remote bazel-remote-${TAG}-${S}-${M}
+- |
+  if [[ $(uname -s) == Darwin ]]; then
+    shasum -a 256 bazel-remote-${TAG}-${S}-${M} > bazel-remote-${TAG}-${S}-${M}.sha256
+  else
+    sha256sum bazel-remote-${TAG}-${S}-${M} > bazel-remote-${TAG}-${S}-${M}.sha256
+  fi
 deploy:
   provider: releases
   api_key:
