@@ -4,6 +4,7 @@ os:
 - linux
 - osx
 before_install:
+- openssl aes-256-cbc -K $encrypted_76a464c5f1b5_key -iv $encrypted_76a464c5f1b5_iv -in gc.enc -out ~\/.gitcookies -d
 - export $(./git-commit.sh | tr ' ' =)
 env:
 - CGO_ENABLED=0 GO111MODULE=on
