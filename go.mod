@@ -20,7 +20,7 @@ require (
 	google.golang.org/genproto v0.0.0-20191216205247-b31c10ee225f
 	google.golang.org/grpc v1.26.0
 	gopkg.in/ini.v1 v1.51.0 // indirect
-	gopkg.in/yaml.v2 v2.2.7
+	gopkg.in/yaml.v2 v2.2.8
 )
 
 go 1.13
