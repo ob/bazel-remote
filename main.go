@@ -249,7 +249,8 @@ func startHttpServer(c *config.Config, httpServer **http.Server,
 	checkClientCertForWrites := c.TLSCaFile != ""
 	validateAC := !c.DisableHTTPACValidation
 	h := server.NewHTTPCache(diskCache, c.AccessLogger, c.ErrorLogger, validateAC,
-		c.EnableACKeyInstanceMangling, checkClientCertForReads, checkClientCertForWrites, gitCommit, gitTags)
+		c.EnableACKeyInstanceMangling, checkClientCertForReads, checkClientCertForWrites, gitCommit, gitTags,
+		c.MaxBlobSize)
 
 	cacheHandler := h.CacheHandler
 	var ldapAuthenticator authenticator

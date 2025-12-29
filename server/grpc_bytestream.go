@@ -408,6 +408,13 @@ func (s *grpcServer) Write(srv bytestream.ByteStream_WriteServer) error {
 					return
 				}
 
+				if size > s.maxCasBlobSizeBytes {
+					recvResult <- status.Errorf(codes.InvalidArgument,
+						"Blob size %d exceeds maximum allowed size %d",
+						size, s.maxCasBlobSizeBytes)
+					return
+				}
+
 				exists, _ := s.cache.Contains(srv.Context(), cache.CAS, hash, size)
 				if exists {
 					// Blob already exists, return without writing anything.

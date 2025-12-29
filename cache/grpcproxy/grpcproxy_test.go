@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -76,8 +77,7 @@ func newProxy(t *testing.T, dir string, storageMode string) *testProxy {
 	if err != nil {
 		t.Fatal(err)
 	}
-	proxy := New(clients, storageMode, logger, logger, 100, 100)
-	p.proxy = proxy
+	p.proxy = New(clients, storageMode, logger, logger, 100, 100)
 
 	return p
 }
@@ -223,12 +223,13 @@ func newFixture(t *testing.T, proxy cache.Proxy, storageMode string) *fixture {
 		8*1024*1024,
 		disk.WithProxyBackend(proxy),
 		disk.WithStorageMode(storageMode),
-		disk.WithAccessLogger(logger))
+		disk.WithAccessLogger(logger),
+		disk.WithMaxBlobSize(math.MaxInt64))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	unlimitedMaxCasBlobSize := int64(0)
+	unlimitedMaxCasBlobSize := int64(math.MaxInt64)
 
 	grpcServer := grpc.NewServer()
 
