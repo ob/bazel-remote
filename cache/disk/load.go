@@ -531,7 +531,7 @@ func (c *diskCache) scanDir() (scanResult, error) {
 			dirPath := path.Join(name, name2)
 
 			if !de2.IsDir() {
-				if strings.ToLower(name) == lowercaseDSStoreFile {
+				if strings.ToLower(name2) == lowercaseDSStoreFile {
 					continue
 				}
 
