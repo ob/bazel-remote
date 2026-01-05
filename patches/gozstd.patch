@@ -3,8 +3,9 @@ new file mode 100644
 index 0000000..2dd6245
 --- /dev/null
 +++ b/BUILD.bazel
-@@ -0,0 +1,75 @@
+@@ -0,0 +1,76 @@
 +load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++load("@rules_cc//cc:cc_library.bzl", "cc_library")
 +
 +cc_library(
 +    name = "libzstd",
